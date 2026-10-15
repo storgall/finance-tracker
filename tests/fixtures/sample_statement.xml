@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<statement>
+  <acc_no_int>0000000000</acc_no_int>
+  <header>
+    <account currency="CZK" iban="CZ0000000000000000000000" number="0000000000/0600">
+      <stm-bgn-bal>1000.00</stm-bgn-bal>
+    </account>
+    <stmt attachment-type="XML" date="2026-09-30" date-previous="2026-08-31" number="9" periodicity-description="monthly" trn-cnt="4"/>
+  </header>
+  <transactions>
+    <transaction amount="-125.50" con-sym="0308" contactless="1" date-action="" date-eff="2026-09-03" date-post="2026-09-04" id="000001A000000000001" mobile="0" mobile-payment="0" orig-ref="" other-account-number="TEST MARKET S.R.O." spec-sym="" var-sym="1234567890">
+      <trn-messages type="description">
+        <trn-message position="2">Platba kartou - Příbram</trn-message>
+      </trn-messages>
+    </transaction>
+    <transaction amount="25000.00" con-sym="" contactless="0" date-action="" date-eff="2026-09-10" date-post="2026-09-10" id="000002A000000000002" mobile="0" mobile-payment="0" orig-ref="" other-account-number="111111111/0100" spec-sym="" var-sym="">
+      <trn-messages type="description">
+        <trn-message position="2">Výplata září</trn-message>
+      </trn-messages>
+    </transaction>
+    <transaction amount="-12000.00" con-sym="0558" contactless="0" date-action="" date-eff="2026-09-15" date-post="2026-09-15" id="000003A000000000003" mobile="0" mobile-payment="0" orig-ref="" other-account-number="222222222/0800" spec-sym="" var-sym="9">
+      <trn-messages type="description">
+        <trn-message position="1">Trvalý příkaz</trn-message>
+        <trn-message position="2">nájem září</trn-message>
+      </trn-messages>
+    </transaction>
+    <transaction amount="-99.99" con-sym="0308" contactless="0" date-action="" date-eff="2026-09-21" date-post="2026-09-22" id="000004A000000000004" mobile="0" mobile-payment="0" orig-ref="" other-account-number="FAKE STREAMING" spec-sym="" var-sym="">
+      <trn-messages type="description">
+        <trn-message position="2">Platba kartou - online</trn-message>
+      </trn-messages>
+      <trn-messages type="advice">
+        <trn-message position="1">Informace banky, ignorovat</trn-message>
+      </trn-messages>
+    </transaction>
+  </transactions>
+</statement>

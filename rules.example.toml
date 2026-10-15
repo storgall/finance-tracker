@@ -1,0 +1,12 @@
+# Example categorization rules.
+# Copy this file to data/rules.toml and put your own keywords there.
+# data/ is gitignored, so your real merchants never get committed.
+#
+# One line = one category = a list of keywords.
+# A transaction matches when a keyword appears in its counterparty or description
+# (letter case is ignored). The FIRST matching line wins, so order matters.
+
+[rules]
+Groceries = ["albert", "billa", "market"]
+Rent = ["nájem"]
+Streaming = ["netflix", "spotify"]

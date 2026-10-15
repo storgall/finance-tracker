@@ -1,0 +1,5 @@
+# Made-up rules for tests. Order = priority.
+[rules]
+Groceries = ["test market", "fake grocer"]
+Rent = ["nájem"]
+Streaming = ["fake streaming"]
