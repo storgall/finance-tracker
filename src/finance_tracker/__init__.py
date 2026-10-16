@@ -3,8 +3,8 @@ from argparse import ArgumentParser
 from importlib import metadata
 from pathlib import Path
 
-from finance_tracker.categorizer import categorize_transactions
-from finance_tracker.models import Overview, Transaction
+from finance_tracker.categorizer import categorize_transactions, remove_ignored
+from finance_tracker.models import Overview, Transaction, Transactions
 from finance_tracker.parser import parse_statements
 from finance_tracker.rules import load_rules
 
@@ -15,14 +15,15 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command == "import":
         try:
-            transactions, skipped = parse_statements(args.paths)
-            rules = load_rules(args.rules)
+            transactions = parse_statements(args.paths)
+            rule_set = load_rules(args.rules)
         except (ValueError, FileNotFoundError) as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
 
-        categorized = categorize_transactions(transactions, rules)
-        _print_overview(transactions, categorized, skipped)
+        transactions = remove_ignored(transactions, rule_set.ignore)
+        categorized = categorize_transactions(transactions.transactions, rule_set.categories)
+        _print_overview(transactions, categorized)
 
 
 def _build_parser() -> ArgumentParser:
@@ -46,12 +47,14 @@ def _build_parser() -> ArgumentParser:
     return parser
 
 
-def _print_overview(transactions: list[Transaction], overview: Overview, skipped: int) -> None:
-    print(f"Imported {len(transactions)} transactions")
-    if skipped:
-        print(f"Skipped {skipped} duplicate transactions")
+def _print_overview(transactions: Transactions, overview: Overview) -> None:
+    print(f"Imported {len(transactions.transactions)} transactions")
+    if transactions.skipped:
+        print(f"Skipped {transactions.skipped} duplicate transactions")
+    if transactions.ignored:
+        print(f"Ignored {transactions.ignored} transactions")
 
-    _print_dates(transactions)
+    _print_dates(transactions.transactions)
 
     _print_totals(overview)
 

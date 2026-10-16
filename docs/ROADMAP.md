@@ -22,7 +22,7 @@ Order matters: export comes after periods, because periods change the shape of t
 
 - [x] 1. `--version` (reads the installed package version via `importlib.metadata`).
 - [x] 2. Several statement files in one run (`import a.xml b.xml`); duplicates are dropped by the transaction `id` (new `Transaction.id` field).
-- [ ] 3. Ignore rules: `[ignore] keywords = [...]` in `rules.toml`, same matching as categories; ignored count is printed.
+- [x] 3. Ignore rules: `[ignore] keywords = [...]` in `rules.toml`, same matching as categories; ignored count is printed.
 - [ ] 4. Periods: `--by {year,quarter,month,week,day}` (ISO weeks); without it the overview stays one total.
 - [ ] 5. Export: `--export file.csv|file.json` (format by extension; amounts as strings in JSON).
 - [ ] 6. Release 0.2.0: bump the version, update README, tag.

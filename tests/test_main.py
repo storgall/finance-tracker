@@ -207,3 +207,76 @@ def test_import_stops_with_error_when_one_of_several_files_is_missing(
     assert exc_info.value.code == 1
     assert "missing.xml" in captured.err
     assert captured.out == ""
+
+
+IGNORE_STREAMING_RULES = """\
+[rules]
+Groceries = ["test market"]
+Rent = ["nájem"]
+
+[ignore]
+keywords = ["fake streaming"]
+"""
+
+
+def test_import_leaves_out_ignored_transactions_and_reports_them(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rules = tmp_path / "rules.toml"
+    rules.write_text(IGNORE_STREAMING_RULES, encoding="utf-8")
+
+    main(["import", str(FIXTURE), "--rules", str(rules)])
+
+    assert capsys.readouterr().out.splitlines() == [
+        "Imported 3 transactions",
+        "Ignored 1 transactions",
+        "Date range: 2026-09-03 to 2026-09-15",
+        "",
+        "Total Income: 25000.00",
+        "Total Expenses: 12125.50",
+        "Net Total: 12874.50",
+        "",
+        "Income:",
+        "  Uncategorized: 25000.00",
+        "",
+        "Expenses:",
+        "  Rent: 12000.00",
+        "  Groceries: 125.50",
+    ]
+
+
+def test_import_can_ignore_by_counterparty_account(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rules = tmp_path / "rules.toml"
+    rules.write_text('[rules]\n\n[ignore]\nkeywords = ["111111111/0100"]\n', encoding="utf-8")
+
+    main(["import", str(FIXTURE), "--rules", str(rules)])
+
+    lines = capsys.readouterr().out.splitlines()
+    assert "Ignored 1 transactions" in lines
+    assert "Total Income: 0.00" in lines
+
+
+def test_import_without_ignore_keywords_does_not_mention_ignored(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    main(["import", str(FIXTURE), "--rules", str(RULES)])
+
+    assert "Ignored" not in capsys.readouterr().out
+
+
+def test_import_reports_skipped_duplicates_and_ignored_transactions_together(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rules = tmp_path / "rules.toml"
+    rules.write_text(IGNORE_STREAMING_RULES, encoding="utf-8")
+
+    main(["import", str(FIXTURE), str(FIXTURE_2), "--rules", str(rules)])
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[:3] == [
+        "Imported 4 transactions",
+        "Skipped 1 duplicate transactions",
+        "Ignored 1 transactions",
+    ]

@@ -19,6 +19,17 @@ class Transaction:
 
 
 @dataclass()
+class Transactions:
+    """The transactions of an import together with what was left out of them."""
+
+    transactions: list[Transaction]
+    skipped: int
+    """How many transactions were dropped as duplicates of an earlier one (same ``id``)."""
+    ignored: int
+    """How many transactions were removed because they match an ignore keyword."""
+
+
+@dataclass()
 class Overview:
     """A summary of transactions by category."""
 

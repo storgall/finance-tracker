@@ -3,8 +3,14 @@ from decimal import Decimal
 
 import pytest
 
-from finance_tracker.categorizer import UNCATEGORIZED, categorize, categorize_transactions
-from finance_tracker.models import Transaction
+from finance_tracker.categorizer import (
+    UNCATEGORIZED,
+    categorize,
+    categorize_transactions,
+    is_ignored,
+    remove_ignored,
+)
+from finance_tracker.models import Transaction, Transactions
 from finance_tracker.rules import Rules
 
 
@@ -143,3 +149,145 @@ def test_zero_amount_counts_as_income_not_expense() -> None:
 
     assert overview.expenses == {}
     assert overview.income == {UNCATEGORIZED: Decimal("0.00")}
+
+
+def test_transaction_is_ignored_when_keyword_is_in_counterparty() -> None:
+    transaction = make_transaction(counterparty="999999999/0600")
+
+    assert is_ignored(transaction, ["999999999/0600"]) is True
+
+
+def test_transaction_is_ignored_when_keyword_is_in_description() -> None:
+    transaction = make_transaction(description="Transfer to savings")
+
+    assert is_ignored(transaction, ["savings"]) is True
+
+
+def test_ignoring_ignores_letter_case() -> None:
+    transaction = make_transaction(counterparty="Fake Savings")
+
+    assert is_ignored(transaction, ["FAKE SAVINGS"]) is True
+    assert is_ignored(make_transaction(description="NÁJEM"), ["nájem"]) is True
+
+
+def test_any_of_several_keywords_can_ignore_a_transaction() -> None:
+    transaction = make_transaction(counterparty="Fake Savings")
+
+    assert is_ignored(transaction, ["other", "savings", "another"]) is True
+
+
+def test_transaction_without_matching_keyword_is_not_ignored() -> None:
+    transaction = make_transaction(counterparty="Test Market")
+
+    assert is_ignored(transaction, ["savings"]) is False
+
+
+def test_no_keywords_ignore_nothing() -> None:
+    assert is_ignored(make_transaction(counterparty="Test Market"), []) is False
+
+
+@pytest.mark.parametrize("keyword", ["", " ", "   ", "\t"])
+def test_empty_or_whitespace_keyword_never_ignores(keyword: str) -> None:
+    assert is_ignored(make_transaction(counterparty="Test Market"), [keyword]) is False
+
+
+def test_blank_keyword_does_not_hide_later_valid_keywords_when_ignoring() -> None:
+    transaction = make_transaction(counterparty="Fake Savings")
+
+    assert is_ignored(transaction, [" ", "savings"]) is True
+
+
+def test_ignoring_does_not_depend_on_amount() -> None:
+    expense = make_transaction(counterparty="Fake Savings", amount="-500.00")
+    income = make_transaction(counterparty="Fake Savings", amount="500.00")
+
+    assert is_ignored(expense, ["savings"]) is True
+    assert is_ignored(income, ["savings"]) is True
+
+
+def make_transactions(*transactions: Transaction, skipped: int = 0) -> Transactions:
+    return Transactions(transactions=list(transactions), skipped=skipped, ignored=0)
+
+
+def test_remove_ignored_drops_matching_transactions_and_counts_them() -> None:
+    savings = make_transaction(counterparty="Fake Savings", amount="-500.00")
+    market = make_transaction(counterparty="Test Market", amount="-100.00")
+    rent = make_transaction(description="nájem září", amount="-12000.00")
+
+    result = remove_ignored(make_transactions(savings, market, rent), ["savings"])
+
+    assert result.transactions == [market, rent]
+    assert result.ignored == 1
+
+
+def test_remove_ignored_counts_every_removed_transaction() -> None:
+    transactions = make_transactions(
+        make_transaction(counterparty="Fake Savings", amount="-500.00"),
+        make_transaction(description="Transfer to savings", amount="500.00"),
+        make_transaction(counterparty="Test Market"),
+    )
+
+    result = remove_ignored(transactions, ["savings"])
+
+    assert len(result.transactions) == 1
+    assert result.ignored == 2
+
+
+def test_remove_ignored_with_several_keywords() -> None:
+    transactions = make_transactions(
+        make_transaction(counterparty="Fake Savings"),
+        make_transaction(counterparty="999999999/0600"),
+        make_transaction(counterparty="Test Market"),
+    )
+
+    result = remove_ignored(transactions, ["savings", "999999999/0600"])
+
+    assert [t.counterparty for t in result.transactions] == ["Test Market"]
+    assert result.ignored == 2
+
+
+def test_remove_ignored_without_keywords_keeps_everything() -> None:
+    transactions = make_transactions(make_transaction(counterparty="Fake Savings"))
+
+    result = remove_ignored(transactions, [])
+
+    assert len(result.transactions) == 1
+    assert result.ignored == 0
+
+
+def test_remove_ignored_when_nothing_matches_keeps_everything() -> None:
+    transactions = make_transactions(make_transaction(counterparty="Test Market"))
+
+    result = remove_ignored(transactions, ["savings"])
+
+    assert len(result.transactions) == 1
+    assert result.ignored == 0
+
+
+def test_remove_ignored_ignores_blank_keywords() -> None:
+    transactions = make_transactions(make_transaction(counterparty="Test Market"))
+
+    result = remove_ignored(transactions, ["", "  "])
+
+    assert len(result.transactions) == 1
+    assert result.ignored == 0
+
+
+def test_remove_ignored_keeps_the_skipped_duplicates_count() -> None:
+    transactions = make_transactions(
+        make_transaction(counterparty="Fake Savings"),
+        make_transaction(counterparty="Test Market"),
+        skipped=3,
+    )
+
+    result = remove_ignored(transactions, ["savings"])
+
+    assert result.skipped == 3
+    assert result.ignored == 1
+
+
+def test_remove_ignored_on_no_transactions_does_nothing() -> None:
+    result = remove_ignored(make_transactions(), ["savings"])
+
+    assert result.transactions == []
+    assert result.ignored == 0

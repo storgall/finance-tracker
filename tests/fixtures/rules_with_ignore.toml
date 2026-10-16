@@ -1,0 +1,6 @@
+# Made-up rules with an ignore section, for tests.
+[rules]
+Groceries = ["test market"]
+
+[ignore]
+keywords = ["fake savings", "999999999/0600"]

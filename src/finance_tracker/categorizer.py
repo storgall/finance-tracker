@@ -1,4 +1,4 @@
-from finance_tracker.models import Overview, Transaction
+from finance_tracker.models import Overview, Transaction, Transactions
 from finance_tracker.rules import Rules
 
 UNCATEGORIZED = "Uncategorized"
@@ -33,9 +33,62 @@ def categorize(transaction: Transaction, rules: Rules) -> str:
         * the amount is ignored: income and expenses are categorized the same way
     """
 
-    text = f"{transaction.counterparty} {transaction.description}".casefold()
-
     for category, keywords in rules.items():
-        if any(keyword.casefold() in text for keyword in keywords if keyword.strip()):
+        if _matches(transaction, keywords):
             return category
     return UNCATEGORIZED
+
+
+def remove_ignored(transactions: Transactions, ignore_keywords: list[str]) -> Transactions:
+    """Remove the transactions that match any of the ignore keywords.
+
+    Args:
+        transactions: the imported transactions. The object is changed in place.
+        ignore_keywords: keywords matched with the same rules as in ``is_ignored``.
+
+    Returns:
+        The same ``transactions`` object, without the ignored ones. Its ``ignored`` field is
+        set to the number of removed transactions; ``skipped`` is left untouched. With no
+        keywords nothing is removed.
+    """
+
+    if not ignore_keywords:
+        return transactions
+
+    num_transactions = len(transactions.transactions)
+    transactions.transactions = [
+        t for t in transactions.transactions if not is_ignored(t, ignore_keywords)
+    ]
+    transactions.ignored = num_transactions - len(transactions.transactions)
+
+    return transactions
+
+
+def is_ignored(transaction: Transaction, keywords: list[str]) -> bool:
+    """Tell whether ``transaction`` must be left out of the overview.
+
+    A transaction is ignored when at least one of ``keywords`` occurs anywhere in its
+    ``counterparty`` or ``description``, for example the number of a savings account.
+
+    Requirements:
+        * the matching rules are the same as in ``categorize``: letter case is ignored and
+          empty or whitespace-only keywords never match
+        * an empty ``keywords`` list ignores nothing
+        * the amount is irrelevant: income and expenses are treated the same way
+    """
+    return _matches(transaction, keywords)
+
+
+def _matches(transaction: Transaction, keywords: list[str]) -> bool:
+    """Tell whether any of ``keywords`` occurs in the counterparty or description.
+
+    Shared by ``categorize`` and ``is_ignored``, so that both match in exactly the same way.
+
+    Requirements:
+        * letter case is ignored
+        * empty and whitespace-only keywords never match
+    """
+
+    text = f"{transaction.counterparty} {transaction.description}".casefold()
+
+    return any(keyword.casefold() in text for keyword in keywords if keyword.strip())

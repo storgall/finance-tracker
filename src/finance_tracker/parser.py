@@ -4,10 +4,10 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from finance_tracker.merge import merge_transactions
-from finance_tracker.models import Transaction
+from finance_tracker.models import Transaction, Transactions
 
 
-def parse_statements(paths: list[Path]) -> tuple[list[Transaction], int]:
+def parse_statements(paths: list[Path]) -> Transactions:
     """Read several Moneta XML statements and merge them into one list of transactions.
 
     Exports can overlap, so a transaction that appears in more than one file (same ``id``)
@@ -15,8 +15,8 @@ def parse_statements(paths: list[Path]) -> tuple[list[Transaction], int]:
     single file.
 
     Returns:
-        A pair ``(transactions, skipped)``: all transactions in file order without duplicates,
-        and the number of duplicates that were dropped.
+        A ``Transactions`` with all transactions in file order without duplicates and the
+        number of duplicates that were dropped (``skipped``).
 
     Raises:
         FileNotFoundError: if any of ``paths`` does not exist.
@@ -24,9 +24,7 @@ def parse_statements(paths: list[Path]) -> tuple[list[Transaction], int]:
     """
 
     batches: list[list[Transaction]] = [parse_statement(path) for path in paths]
-    transactions, skipped = merge_transactions(batches)
-
-    return transactions, skipped
+    return merge_transactions(batches)
 
 
 def parse_statement(path: Path) -> list[Transaction]:
