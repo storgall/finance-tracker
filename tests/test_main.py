@@ -1,3 +1,4 @@
+from importlib.metadata import version
 from pathlib import Path
 
 import pytest
@@ -141,3 +142,11 @@ def test_import_statement_without_transactions_prints_zero_totals_and_no_date_ra
     assert "Total Income: 0.00" in lines
     assert "Total Expenses: 0.00" in lines
     assert "Net Total: 0.00" in lines
+
+
+def test_version_option_prints_installed_version(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--version"])
+
+    assert exc_info.value.code == 0
+    assert capsys.readouterr().out.strip() == f"finance-tracker {version('finance-tracker')}"

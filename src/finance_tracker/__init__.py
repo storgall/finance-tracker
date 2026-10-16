@@ -1,5 +1,6 @@
 import sys
 from argparse import ArgumentParser
+from importlib import metadata
 from pathlib import Path
 
 from finance_tracker.categorizer import categorize_transactions
@@ -33,6 +34,13 @@ def _build_parser() -> ArgumentParser:
     import_parser.add_argument("path", help="Path to the statement file", type=Path)
     import_parser.add_argument(
         "--rules", help="Path to the rules file", type=Path, default=Path("data/rules.toml")
+    )
+
+    parser.add_argument(
+        "--version",
+        help="Show the version of the application",
+        action="version",
+        version=f"%(prog)s {metadata.version('finance-tracker')}",
     )
 
     return parser
