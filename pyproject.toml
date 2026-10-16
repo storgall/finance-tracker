@@ -1,8 +1,10 @@
 [project]
 name = "finance-tracker"
 version = "0.1.0"
-description = "Import bank statements from CSV, categorize expenses and show monthly overviews."
+description = "Command-line tool that imports Moneta bank statements (XML), sorts every transaction into categories using your own keyword rules, skips accounts you want to ignore (e.g. savings), and prints an income and expense overview. Pure Python standard library, exact Decimal money handling, fully typed and tested."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Petr Dedek", email = "32178784+storgall@users.noreply.github.com" }
 ]
