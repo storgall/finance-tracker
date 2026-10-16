@@ -3,13 +3,37 @@ from datetime import date as Date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+from finance_tracker.merge import merge_transactions
 from finance_tracker.models import Transaction
+
+
+def parse_statements(paths: list[Path]) -> tuple[list[Transaction], int]:
+    """Read several Moneta XML statements and merge them into one list of transactions.
+
+    Exports can overlap, so a transaction that appears in more than one file (same ``id``)
+    is kept only once; the first occurrence wins. See ``parse_statement`` for the format of a
+    single file.
+
+    Returns:
+        A pair ``(transactions, skipped)``: all transactions in file order without duplicates,
+        and the number of duplicates that were dropped.
+
+    Raises:
+        FileNotFoundError: if any of ``paths`` does not exist.
+        ValueError: if any file is not valid; the error of the first bad file is raised.
+    """
+
+    batches: list[list[Transaction]] = [parse_statement(path) for path in paths]
+    transactions, skipped = merge_transactions(batches)
+
+    return transactions, skipped
 
 
 def parse_statement(path: Path) -> list[Transaction]:
     """Read a Moneta XML statement and return its transactions in file order.
 
     Each ``statement/transactions/transaction`` element becomes one ``Transaction``:
+        id:           attribute ``id`` (unique identifier for the transaction)
         date:         attribute ``date-eff`` (ISO ``YYYY-MM-DD``)
         amount:       attribute ``amount`` as ``Decimal`` (signed, dot decimal separator)
         counterparty: attribute ``other-account-number`` (empty string if missing)
@@ -20,7 +44,7 @@ def parse_statement(path: Path) -> list[Transaction]:
     Raises:
         FileNotFoundError: if ``path`` does not exist.
         ValueError: if the file is not well-formed XML, or if a transaction lacks the
-            ``date-eff`` or ``amount`` attribute.
+            ``id``, ``date-eff``, or ``amount`` attribute.
     """
     try:
         root = ET.parse(path).getroot()
@@ -34,6 +58,7 @@ def parse_statement(path: Path) -> list[Transaction]:
 
 
 def _parse_transaction(transaction: ET.Element) -> Transaction:
+    transaction_id = _required(transaction, "id")
     date = Date.fromisoformat(_required(transaction, "date-eff"))
     amount_str = _required(transaction, "amount")
     try:
@@ -43,7 +68,7 @@ def _parse_transaction(transaction: ET.Element) -> Transaction:
     counterparty = transaction.get("other-account-number", "")
     description = _get_description(transaction)
 
-    return Transaction(date, amount, counterparty, description)
+    return Transaction(transaction_id, date, amount, counterparty, description)
 
 
 def _get_description(transaction: ET.Element) -> str:

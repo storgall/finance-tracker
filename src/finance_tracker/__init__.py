@@ -5,7 +5,7 @@ from pathlib import Path
 
 from finance_tracker.categorizer import categorize_transactions
 from finance_tracker.models import Overview, Transaction
-from finance_tracker.parser import parse_statement
+from finance_tracker.parser import parse_statements
 from finance_tracker.rules import load_rules
 
 
@@ -15,14 +15,14 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command == "import":
         try:
-            transactions = parse_statement(args.path)
+            transactions, skipped = parse_statements(args.paths)
             rules = load_rules(args.rules)
         except (ValueError, FileNotFoundError) as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
 
         categorized = categorize_transactions(transactions, rules)
-        _print_overview(transactions, categorized)
+        _print_overview(transactions, categorized, skipped)
 
 
 def _build_parser() -> ArgumentParser:
@@ -31,7 +31,7 @@ def _build_parser() -> ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     import_parser = subparsers.add_parser("import", help="Import a statement")
-    import_parser.add_argument("path", help="Path to the statement file", type=Path)
+    import_parser.add_argument("paths", help="Paths to the statement files", type=Path, nargs="+")
     import_parser.add_argument(
         "--rules", help="Path to the rules file", type=Path, default=Path("data/rules.toml")
     )
@@ -46,8 +46,10 @@ def _build_parser() -> ArgumentParser:
     return parser
 
 
-def _print_overview(transactions: list[Transaction], overview: Overview) -> None:
+def _print_overview(transactions: list[Transaction], overview: Overview, skipped: int) -> None:
     print(f"Imported {len(transactions)} transactions")
+    if skipped:
+        print(f"Skipped {skipped} duplicate transactions")
 
     _print_dates(transactions)
 

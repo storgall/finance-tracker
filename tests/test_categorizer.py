@@ -12,6 +12,7 @@ def make_transaction(
     counterparty: str = "", description: str = "", amount: str = "-100.00"
 ) -> Transaction:
     return Transaction(
+        id="TX1",
         date=date(2026, 9, 3),
         amount=Decimal(amount),
         counterparty=counterparty,

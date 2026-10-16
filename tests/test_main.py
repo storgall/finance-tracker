@@ -7,6 +7,7 @@ from finance_tracker import main
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "sample_statement.xml"
+FIXTURE_2 = FIXTURES / "sample_statement_2.xml"
 RULES = FIXTURES / "rules.toml"
 
 
@@ -150,3 +151,59 @@ def test_version_option_prints_installed_version(capsys: pytest.CaptureFixture[s
 
     assert exc_info.value.code == 0
     assert capsys.readouterr().out.strip() == f"finance-tracker {version('finance-tracker')}"
+
+
+def test_import_several_files_merges_transactions_and_skips_duplicates(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    main(["import", str(FIXTURE), str(FIXTURE_2), "--rules", str(RULES)])
+
+    assert capsys.readouterr().out.splitlines() == [
+        "Imported 5 transactions",
+        "Skipped 1 duplicate transactions",
+        "Date range: 2026-09-03 to 2026-10-02",
+        "",
+        "Total Income: 25000.00",
+        "Total Expenses: 12275.49",
+        "Net Total: 12724.51",
+        "",
+        "Income:",
+        "  Uncategorized: 25000.00",
+        "",
+        "Expenses:",
+        "  Rent: 12000.00",
+        "  Groceries: 125.50",
+        "  Streaming: 99.99",
+        "  Uncategorized: 50.00",
+    ]
+
+
+def test_import_same_file_twice_counts_every_transaction_once(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    main(["import", str(FIXTURE), str(FIXTURE), "--rules", str(RULES)])
+
+    lines = capsys.readouterr().out.splitlines()
+    assert "Imported 4 transactions" in lines
+    assert "Skipped 4 duplicate transactions" in lines
+    assert "Total Expenses: 12225.49" in lines
+
+
+def test_import_single_file_does_not_mention_duplicates(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    main(["import", str(FIXTURE), "--rules", str(RULES)])
+
+    assert "Skipped" not in capsys.readouterr().out
+
+
+def test_import_stops_with_error_when_one_of_several_files_is_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["import", str(FIXTURE), str(tmp_path / "missing.xml"), "--rules", str(RULES)])
+
+    captured = capsys.readouterr()
+    assert exc_info.value.code == 1
+    assert "missing.xml" in captured.err
+    assert captured.out == ""

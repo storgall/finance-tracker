@@ -9,6 +9,7 @@ from finance_tracker.models import Overview, Transaction
 
 def make_transaction(amount: str = "-125.50") -> Transaction:
     return Transaction(
+        id="TX1",
         date=date(2026, 9, 3),
         amount=Decimal(amount),
         counterparty="Test Market s.r.o.",
@@ -131,3 +132,16 @@ def test_overview_totals_follow_later_additions() -> None:
     overview.add(False, "Salary", Decimal("100.00"))
 
     assert overview.net_total == Decimal("90.00")
+
+
+def test_transactions_differing_only_in_id_are_not_equal() -> None:
+    first = make_transaction()
+    second = Transaction(
+        id="TX2",
+        date=first.date,
+        amount=first.amount,
+        counterparty=first.counterparty,
+        description=first.description,
+    )
+
+    assert first != second

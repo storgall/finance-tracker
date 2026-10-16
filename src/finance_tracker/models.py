@@ -7,6 +7,7 @@ from decimal import Decimal
 class Transaction:
     """A single bank transaction."""
 
+    id: str
     date: Date
     amount: Decimal
     counterparty: str

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Made-up statement that overlaps with sample_statement.xml: its first transaction
+     (id 000004A000000000004) is the same as the last one there. -->
+<statement>
+  <acc_no_int>0000000000</acc_no_int>
+  <transactions>
+    <transaction amount="-99.99" con-sym="0308" contactless="0" date-action="" date-eff="2026-09-21" date-post="2026-09-22" id="000004A000000000004" mobile="0" mobile-payment="0" orig-ref="" other-account-number="FAKE STREAMING" spec-sym="" var-sym="">
+      <trn-messages type="description">
+        <trn-message position="2">Platba kartou - online</trn-message>
+      </trn-messages>
+    </transaction>
+    <transaction amount="-50.00" con-sym="0308" contactless="1" date-action="" date-eff="2026-10-02" date-post="2026-10-02" id="000005A000000000005" mobile="0" mobile-payment="0" orig-ref="" other-account-number="NEW SHOP" spec-sym="" var-sym="">
+      <trn-messages type="description">
+        <trn-message position="2">Platba kartou - nový obchod</trn-message>
+      </trn-messages>
+    </transaction>
+  </transactions>
+</statement>

@@ -35,6 +35,7 @@ def test_maps_all_fields_of_first_transaction() -> None:
     first = parse_statement(FIXTURE)[0]
 
     assert first == Transaction(
+        id="000001A000000000001",
         date=date(2026, 9, 3),
         amount=Decimal("-125.50"),
         counterparty="TEST MARKET S.R.O.",
@@ -66,7 +67,7 @@ def test_file_without_transactions_returns_empty_list(tmp_path: Path) -> None:
 
 
 def test_missing_optional_fields_become_empty_strings(tmp_path: Path) -> None:
-    path = write_xml(tmp_path, '<transaction amount="-1.00" date-eff="2026-09-01"/>')
+    path = write_xml(tmp_path, '<transaction id="1" amount="-1.00" date-eff="2026-09-01"/>')
 
     tx = parse_statement(path)[0]
 
@@ -77,8 +78,9 @@ def test_missing_optional_fields_become_empty_strings(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("attributes", "missing"),
     [
-        ('date-eff="2026-09-01"', "amount"),
-        ('amount="-1.00"', "date-eff"),
+        ('id="1" date-eff="2026-09-01"', "amount"),
+        ('id="1" amount="-1.00"', "date-eff"),
+        ('amount="-1.00" date-eff="2026-09-01"', "id"),
     ],
 )
 def test_missing_required_attribute_raises_value_error(
@@ -91,21 +93,21 @@ def test_missing_required_attribute_raises_value_error(
 
 
 def test_invalid_amount_raises_value_error_with_the_bad_value(tmp_path: Path) -> None:
-    path = write_xml(tmp_path, '<transaction amount="12,50 Kc" date-eff="2026-09-01"/>')
+    path = write_xml(tmp_path, '<transaction id="1" amount="12,50 Kc" date-eff="2026-09-01"/>')
 
     with pytest.raises(ValueError, match="Invalid amount.*12,50 Kc"):
         parse_statement(path)
 
 
 def test_missing_amount_is_reported_as_missing_not_invalid(tmp_path: Path) -> None:
-    path = write_xml(tmp_path, '<transaction date-eff="2026-09-01"/>')
+    path = write_xml(tmp_path, '<transaction id="1" date-eff="2026-09-01"/>')
 
     with pytest.raises(ValueError, match="Missing required attribute 'amount'"):
         parse_statement(path)
 
 
 def test_invalid_date_raises_value_error(tmp_path: Path) -> None:
-    path = write_xml(tmp_path, '<transaction amount="-1.00" date-eff="03.09.2026"/>')
+    path = write_xml(tmp_path, '<transaction id="1" amount="-1.00" date-eff="03.09.2026"/>')
 
     with pytest.raises(ValueError, match="03.09.2026"):
         parse_statement(path)
@@ -122,3 +124,14 @@ def test_malformed_xml_raises_value_error(tmp_path: Path) -> None:
 def test_missing_file_raises_file_not_found_error(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         parse_statement(tmp_path / "does_not_exist.xml")
+
+
+def test_reads_the_id_of_every_transaction() -> None:
+    transactions = parse_statement(FIXTURE)
+
+    assert [t.id for t in transactions] == [
+        "000001A000000000001",
+        "000002A000000000002",
+        "000003A000000000003",
+        "000004A000000000004",
+    ]
