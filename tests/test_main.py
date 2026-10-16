@@ -1,3 +1,4 @@
+import shutil
 from importlib.metadata import version
 from pathlib import Path
 
@@ -280,3 +281,103 @@ def test_import_reports_skipped_duplicates_and_ignored_transactions_together(
         "Skipped 1 duplicate transactions",
         "Ignored 1 transactions",
     ]
+
+
+def make_statement_folder(tmp_path: Path) -> Path:
+    folder = tmp_path / "statements"
+    folder.mkdir()
+    shutil.copy(FIXTURE, folder / "STM_1.xml")
+    shutil.copy(FIXTURE_2, folder / "STM_2.xml")
+    (folder / "notes.txt").write_text("not a statement", encoding="utf-8")
+    return folder
+
+
+def test_import_reads_every_xml_file_of_a_folder(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = make_statement_folder(tmp_path)
+
+    main(["import", str(folder), "--rules", str(RULES)])
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[:2] == ["Imported 5 transactions", "Skipped 1 duplicate transactions"]
+
+
+def test_import_folder_gives_the_same_overview_as_listing_the_files(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    main(["import", str(FIXTURE), str(FIXTURE_2), "--rules", str(RULES)])
+    from_files = capsys.readouterr().out
+
+    main(["import", str(make_statement_folder(tmp_path)), "--rules", str(RULES)])
+    from_folder = capsys.readouterr().out
+
+    assert from_folder == from_files
+
+
+def test_import_can_mix_a_folder_and_a_single_file(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = tmp_path / "only_first"
+    folder.mkdir()
+    shutil.copy(FIXTURE, folder / "STM_1.xml")
+
+    main(["import", str(folder), str(FIXTURE_2), "--rules", str(RULES)])
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[:2] == ["Imported 5 transactions", "Skipped 1 duplicate transactions"]
+
+
+def test_import_folder_without_xml_files_reports_error_on_stderr(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = tmp_path / "no_statements"
+    folder.mkdir()
+    (folder / "notes.txt").write_text("nothing here", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(["import", str(folder), "--rules", str(RULES)])
+
+    captured = capsys.readouterr()
+    assert exc_info.value.code == 1
+    assert "no_statements" in captured.err
+    assert captured.out == ""
+
+
+def make_statement_tree(tmp_path: Path) -> Path:
+    folder = tmp_path / "archive"
+    (folder / "2026").mkdir(parents=True)
+    shutil.copy(FIXTURE, folder / "2026" / "STM_1.xml")
+    shutil.copy(FIXTURE_2, folder / "STM_2.xml")
+    return folder
+
+
+def test_import_recursive_reads_statements_in_subfolders(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = make_statement_tree(tmp_path)
+
+    main(["import", str(folder), "--recursive", "--rules", str(RULES)])
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[:2] == ["Imported 5 transactions", "Skipped 1 duplicate transactions"]
+
+
+def test_import_without_recursive_does_not_look_into_subfolders(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = make_statement_tree(tmp_path)
+
+    main(["import", str(folder), "--rules", str(RULES)])
+
+    assert capsys.readouterr().out.splitlines()[0] == "Imported 2 transactions"
+
+
+def test_import_recursive_has_a_short_form(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = make_statement_tree(tmp_path)
+
+    main(["import", str(folder), "-r", "--rules", str(RULES)])
+
+    assert capsys.readouterr().out.splitlines()[0] == "Imported 5 transactions"

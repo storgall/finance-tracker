@@ -4,6 +4,7 @@ from importlib import metadata
 from pathlib import Path
 
 from finance_tracker.categorizer import categorize_transactions, remove_ignored
+from finance_tracker.files import expand_paths
 from finance_tracker.models import Overview, Transaction, Transactions
 from finance_tracker.parser import parse_statements
 from finance_tracker.rules import load_rules
@@ -15,7 +16,9 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command == "import":
         try:
-            transactions = parse_statements(args.paths)
+            transactions = parse_statements(
+                expand_paths(args.paths, expand_subfolders=args.recursive)
+            )
             rule_set = load_rules(args.rules)
         except (ValueError, FileNotFoundError) as e:
             print(f"Error: {e}", file=sys.stderr)
@@ -35,6 +38,12 @@ def _build_parser() -> ArgumentParser:
     import_parser.add_argument("paths", help="Paths to the statement files", type=Path, nargs="+")
     import_parser.add_argument(
         "--rules", help="Path to the rules file", type=Path, default=Path("data/rules.toml")
+    )
+    import_parser.add_argument(
+        "-r",
+        "--recursive",
+        action="store_true",
+        help="Recursively search for XML files in subfolders",
     )
 
     parser.add_argument(
