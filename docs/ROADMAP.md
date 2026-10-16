@@ -16,6 +16,17 @@ Updated by `/py:next-step` after each finished step. One step = a small change t
   - [x] 5b. Period header (first and last transaction date) and totals: total income, total expenses, balance.
   - [x] 5c. README: install, usage example with `rules.example.toml`, how to export the Moneta XML.
 
+## M2 — v0.2.0
+
+Order matters: export comes after periods, because periods change the shape of the overview. The version number in `pyproject.toml` stays `0.1.0` until the last step.
+
+- [ ] 1. `--version` (reads the installed package version via `importlib.metadata`).
+- [ ] 2. Several statement files in one run (`import a.xml b.xml`); duplicates are dropped by the transaction `id` (new `Transaction.id` field).
+- [ ] 3. Ignore rules: `[ignore] keywords = [...]` in `rules.toml`, same matching as categories; ignored count is printed.
+- [ ] 4. Periods: `--by {year,quarter,month,week,day}` (ISO weeks); without it the overview stays one total.
+- [ ] 5. Export: `--export file.csv|file.json` (format by extension; amounts as strings in JSON).
+- [ ] 6. Release 0.2.0: bump the version, update README, tag.
+
 ## Out of scope (v0.1)
 
 Web UI, database, charts, multiple banks.
