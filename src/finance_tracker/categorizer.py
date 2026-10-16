@@ -1,4 +1,5 @@
 from finance_tracker.models import Overview, Transaction, Transactions
+from finance_tracker.periods import period_key
 from finance_tracker.rules import Rules
 
 UNCATEGORIZED = "Uncategorized"
@@ -13,6 +14,44 @@ def categorize_transactions(transactions: list[Transaction], rules: Rules) -> Ov
 
     result.sort()
     return result
+
+
+def categorize_by_period(
+    transactions: list[Transaction], rules: Rules, granularity: str
+) -> dict[str, Overview]:
+    """Split ``transactions`` into periods and build an ``Overview`` of each period.
+
+    Args:
+        transactions: the transactions to summarize, in any order.
+        rules: the categorization rules, as in ``categorize_transactions``.
+        granularity: one of ``periods.GRANULARITIES``; the label of a period is given by
+            ``periods.period_key``.
+
+    Returns:
+        A dict from the period label to the ``Overview`` of the transactions of that period,
+        with the periods in chronological order.
+
+    Raises:
+        ValueError: if ``granularity`` is not supported and there is a transaction to place.
+
+    Requirements:
+        * every period gets exactly the overview ``categorize_transactions`` would give for
+          its own transactions
+        * a period without transactions is not in the result; no transactions give ``{}``
+        * the order of the input does not matter and the input list is not modified
+    """
+
+    transactions_by_period: dict[str, list[Transaction]] = {}
+
+    for transaction in transactions:
+        transactions_by_period.setdefault(period_key(transaction.date, granularity), []).append(
+            transaction
+        )
+
+    return {
+        label: categorize_transactions(transactions_by_period[label], rules)
+        for label in sorted(transactions_by_period)
+    }
 
 
 def categorize(transaction: Transaction, rules: Rules) -> str:

@@ -6,6 +6,7 @@ import pytest
 from finance_tracker.categorizer import (
     UNCATEGORIZED,
     categorize,
+    categorize_by_period,
     categorize_transactions,
     is_ignored,
     remove_ignored,
@@ -15,11 +16,14 @@ from finance_tracker.rules import Rules
 
 
 def make_transaction(
-    counterparty: str = "", description: str = "", amount: str = "-100.00"
+    counterparty: str = "",
+    description: str = "",
+    amount: str = "-100.00",
+    day: date = date(2026, 9, 3),
 ) -> Transaction:
     return Transaction(
         id="TX1",
-        date=date(2026, 9, 3),
+        date=day,
         amount=Decimal(amount),
         counterparty=counterparty,
         description=description,
@@ -291,3 +295,113 @@ def test_remove_ignored_on_no_transactions_does_nothing() -> None:
 
     assert result.transactions == []
     assert result.ignored == 0
+
+
+PERIOD_RULES: Rules = {"Groceries": ["market"], "Rent": ["rent"], "Salary": ["salary"]}
+
+
+def make_period_transactions() -> list[Transaction]:
+    return [
+        make_transaction(counterparty="Market", amount="-100.00", day=date(2026, 9, 3)),
+        make_transaction(counterparty="Market", amount="-50.00", day=date(2026, 9, 20)),
+        make_transaction(description="Salary", amount="5000.00", day=date(2026, 10, 1)),
+        make_transaction(description="Rent", amount="-12000.00", day=date(2026, 10, 15)),
+    ]
+
+
+def test_by_month_gives_one_overview_per_month() -> None:
+    result = categorize_by_period(make_period_transactions(), PERIOD_RULES, "month")
+
+    assert list(result) == ["2026-09", "2026-10"]
+    assert result["2026-09"].expenses == {"Groceries": Decimal("-150.00")}
+    assert result["2026-09"].income == {}
+    assert result["2026-10"].expenses == {"Rent": Decimal("-12000.00")}
+    assert result["2026-10"].income == {"Salary": Decimal("5000.00")}
+
+
+def test_by_year_puts_everything_of_the_year_into_one_overview() -> None:
+    result = categorize_by_period(make_period_transactions(), PERIOD_RULES, "year")
+
+    assert list(result) == ["2026"]
+    assert result["2026"].net_total == Decimal("-7150.00")
+
+
+def test_by_day_gives_one_overview_per_day_with_transactions() -> None:
+    result = categorize_by_period(make_period_transactions(), PERIOD_RULES, "day")
+
+    assert list(result) == ["2026-09-03", "2026-09-20", "2026-10-01", "2026-10-15"]
+
+
+def test_by_quarter_groups_the_months_of_the_quarter() -> None:
+    result = categorize_by_period(make_period_transactions(), PERIOD_RULES, "quarter")
+
+    assert list(result) == ["2026-Q3", "2026-Q4"]
+    assert result["2026-Q3"].total_expenses == Decimal("-150.00")
+
+
+def test_by_week_uses_iso_weeks_across_the_new_year() -> None:
+    transactions = [
+        make_transaction(amount="-1.00", day=date(2026, 12, 31)),
+        make_transaction(amount="-2.00", day=date(2027, 1, 1)),
+        make_transaction(amount="-4.00", day=date(2027, 1, 4)),
+    ]
+
+    result = categorize_by_period(transactions, {}, "week")
+
+    assert list(result) == ["2026-W53", "2027-W01"]
+    assert result["2026-W53"].total_expenses == Decimal("-3.00")
+    assert result["2027-W01"].total_expenses == Decimal("-4.00")
+
+
+def test_periods_come_in_chronological_order_whatever_the_input_order() -> None:
+    transactions = list(reversed(make_period_transactions()))
+
+    result = categorize_by_period(transactions, PERIOD_RULES, "month")
+
+    assert list(result) == ["2026-09", "2026-10"]
+
+
+def test_period_without_transactions_is_not_listed() -> None:
+    transactions = [
+        make_transaction(amount="-1.00", day=date(2026, 1, 15)),
+        make_transaction(amount="-1.00", day=date(2026, 3, 15)),
+    ]
+
+    result = categorize_by_period(transactions, {}, "month")
+
+    assert list(result) == ["2026-01", "2026-03"]
+
+
+def test_each_period_equals_the_overview_of_its_own_transactions() -> None:
+    transactions = make_period_transactions()
+
+    result = categorize_by_period(transactions, PERIOD_RULES, "month")
+
+    assert result["2026-09"] == categorize_transactions(transactions[:2], PERIOD_RULES)
+    assert result["2026-10"] == categorize_transactions(transactions[2:], PERIOD_RULES)
+
+
+def test_uncategorized_transactions_are_counted_in_their_period() -> None:
+    transactions = [make_transaction(counterparty="Unknown", amount="-7.00")]
+
+    result = categorize_by_period(transactions, PERIOD_RULES, "month")
+
+    assert result["2026-09"].expenses == {UNCATEGORIZED: Decimal("-7.00")}
+
+
+def test_no_transactions_give_no_periods() -> None:
+    assert categorize_by_period([], PERIOD_RULES, "month") == {}
+
+
+def test_input_list_is_not_modified_by_splitting_into_periods() -> None:
+    transactions = list(reversed(make_period_transactions()))
+    before = list(transactions)
+
+    categorize_by_period(transactions, PERIOD_RULES, "month")
+
+    assert transactions == before
+
+
+def test_unknown_granularity_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="decade"):
+        categorize_by_period(make_period_transactions(), PERIOD_RULES, "decade")

@@ -381,3 +381,129 @@ def test_import_recursive_has_a_short_form(
     main(["import", str(folder), "-r", "--rules", str(RULES)])
 
     assert capsys.readouterr().out.splitlines()[0] == "Imported 5 transactions"
+
+
+def period_headings(output: str) -> list[str]:
+    return [line for line in output.splitlines() if line.startswith("== ")]
+
+
+def test_import_by_month_prints_an_overview_for_every_month(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    main(["import", str(FIXTURE), str(FIXTURE_2), "--by", "month", "--rules", str(RULES)])
+
+    assert capsys.readouterr().out.splitlines() == [
+        "Imported 5 transactions",
+        "Skipped 1 duplicate transactions",
+        "Date range: 2026-09-03 to 2026-10-02",
+        "",
+        "== 2026-09 ==",
+        "Total Income: 25000.00",
+        "Total Expenses: 12225.49",
+        "Net Total: 12774.51",
+        "",
+        "Income:",
+        "  Uncategorized: 25000.00",
+        "",
+        "Expenses:",
+        "  Rent: 12000.00",
+        "  Groceries: 125.50",
+        "  Streaming: 99.99",
+        "",
+        "== 2026-10 ==",
+        "Total Income: 0.00",
+        "Total Expenses: 50.00",
+        "Net Total: -50.00",
+        "",
+        "Income:",
+        "",
+        "Expenses:",
+        "  Uncategorized: 50.00",
+    ]
+
+
+def test_import_by_year_prints_one_overview_with_the_totals_of_the_year(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    main(["import", str(FIXTURE), str(FIXTURE_2), "--by", "year", "--rules", str(RULES)])
+
+    output = capsys.readouterr().out
+    assert period_headings(output) == ["== 2026 =="]
+    assert "Total Expenses: 12275.49" in output.splitlines()
+    assert "Net Total: 12724.51" in output.splitlines()
+
+
+def test_import_by_quarter_prints_the_quarters(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["import", str(FIXTURE), str(FIXTURE_2), "--by", "quarter", "--rules", str(RULES)])
+
+    assert period_headings(capsys.readouterr().out) == ["== 2026-Q3 ==", "== 2026-Q4 =="]
+
+
+def test_import_by_week_prints_iso_weeks(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["import", str(FIXTURE), str(FIXTURE_2), "--by", "week", "--rules", str(RULES)])
+
+    assert period_headings(capsys.readouterr().out) == [
+        "== 2026-W36 ==",
+        "== 2026-W37 ==",
+        "== 2026-W38 ==",
+        "== 2026-W39 ==",
+        "== 2026-W40 ==",
+    ]
+
+
+def test_import_by_day_prints_only_days_with_transactions(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    main(["import", str(FIXTURE), str(FIXTURE_2), "--by", "day", "--rules", str(RULES)])
+
+    assert period_headings(capsys.readouterr().out) == [
+        "== 2026-09-03 ==",
+        "== 2026-09-10 ==",
+        "== 2026-09-15 ==",
+        "== 2026-09-21 ==",
+        "== 2026-10-02 ==",
+    ]
+
+
+def test_import_without_by_prints_no_period_headings(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["import", str(FIXTURE), str(FIXTURE_2), "--rules", str(RULES)])
+
+    assert period_headings(capsys.readouterr().out) == []
+
+
+def test_import_by_works_together_with_ignored_keywords(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rules = tmp_path / "rules.toml"
+    rules.write_text(IGNORE_STREAMING_RULES, encoding="utf-8")
+
+    main(["import", str(FIXTURE), str(FIXTURE_2), "--by", "month", "--rules", str(rules)])
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[:4] == [
+        "Imported 4 transactions",
+        "Skipped 1 duplicate transactions",
+        "Ignored 1 transactions",
+        "Date range: 2026-09-03 to 2026-10-02",
+    ]
+    assert "Total Expenses: 12125.50" in lines
+    assert "  Streaming: 99.99" not in lines
+
+
+def test_import_by_for_a_statement_without_transactions_prints_only_the_header(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    empty = tmp_path / "empty.xml"
+    empty.write_text("<statement><transactions/></statement>", encoding="utf-8")
+
+    main(["import", str(empty), "--by", "month", "--rules", str(RULES)])
+
+    assert capsys.readouterr().out.splitlines() == ["Imported 0 transactions"]
+
+
+def test_import_by_rejects_an_unknown_period(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["import", str(FIXTURE), "--by", "decade", "--rules", str(RULES)])
+
+    assert exc_info.value.code == 2
+    assert "decade" in capsys.readouterr().err
