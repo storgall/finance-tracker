@@ -1,5 +1,8 @@
 # finance-tracker
 
+[![CI](https://github.com/storgall/finance-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/storgall/finance-tracker/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A small command-line tool that reads a **Moneta** bank statement (XML export), sorts every
 transaction into a category using your own keyword rules, and prints a monthly overview of
 income and expenses.
