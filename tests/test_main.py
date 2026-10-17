@@ -1,3 +1,4 @@
+import json
 import shutil
 from importlib.metadata import version
 from pathlib import Path
@@ -507,3 +508,131 @@ def test_import_by_rejects_an_unknown_period(capsys: pytest.CaptureFixture[str])
 
     assert exc_info.value.code == 2
     assert "decade" in capsys.readouterr().err
+
+
+def test_import_export_csv_writes_the_overview_and_still_prints_the_report(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    target = tmp_path / "overview.csv"
+
+    main(["import", str(FIXTURE), "--rules", str(RULES), "--export", str(target)])
+
+    assert target.read_text(encoding="utf-8").splitlines() == [
+        "period,kind,category,amount",
+        "all,income,Uncategorized,25000.00",
+        "all,expense,Rent,12000.00",
+        "all,expense,Groceries,125.50",
+        "all,expense,Streaming,99.99",
+    ]
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "Imported 4 transactions"
+    assert lines[-2:] == ["", f"Exported to {target}"]
+
+
+def test_import_export_json_by_month_has_a_period_for_every_month(tmp_path: Path) -> None:
+    target = tmp_path / "overview.json"
+
+    main(
+        [
+            "import",
+            str(FIXTURE),
+            str(FIXTURE_2),
+            "--by",
+            "month",
+            "--rules",
+            str(RULES),
+            "--export",
+            str(target),
+        ]
+    )
+
+    document = json.loads(target.read_text(encoding="utf-8"))
+    assert (document["imported"], document["skipped"], document["ignored"]) == (5, 1, 0)
+    assert [period["period"] for period in document["periods"]] == ["2026-09", "2026-10"]
+    assert document["periods"][0]["net_total"] == "12774.51"
+
+
+def test_import_export_without_by_uses_one_period_called_all(tmp_path: Path) -> None:
+    target = tmp_path / "overview.json"
+
+    main(["import", str(FIXTURE), "--rules", str(RULES), "--export", str(target)])
+
+    document = json.loads(target.read_text(encoding="utf-8"))
+    assert [period["period"] for period in document["periods"]] == ["all"]
+
+
+def test_import_export_json_counts_ignored_transactions(tmp_path: Path) -> None:
+    rules = tmp_path / "rules.toml"
+    rules.write_text(IGNORE_STREAMING_RULES, encoding="utf-8")
+    target = tmp_path / "overview.json"
+
+    main(["import", str(FIXTURE), "--rules", str(rules), "--export", str(target)])
+
+    document = json.loads(target.read_text(encoding="utf-8"))
+    assert (document["imported"], document["ignored"]) == (3, 1)
+
+
+def test_import_export_of_an_empty_statement_is_only_the_csv_header(tmp_path: Path) -> None:
+    empty = tmp_path / "empty.xml"
+    empty.write_text("<statement><transactions/></statement>", encoding="utf-8")
+    target = tmp_path / "overview.csv"
+
+    main(["import", str(empty), "--rules", str(RULES), "--export", str(target)])
+
+    assert target.read_text(encoding="utf-8").splitlines() == ["period,kind,category,amount"]
+
+
+def test_import_without_export_writes_no_file_and_prints_no_export_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    main(["import", str(FIXTURE), "--rules", str(RULES)])
+
+    assert "Exported" not in capsys.readouterr().out
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_import_export_refuses_to_overwrite_an_existing_file(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    target = tmp_path / "overview.csv"
+    target.write_text("precious data", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(["import", str(FIXTURE), "--rules", str(RULES), "--export", str(target)])
+
+    captured = capsys.readouterr()
+    assert exc_info.value.code == 1
+    assert "overview.csv" in captured.err
+    assert captured.out == ""
+    assert target.read_text(encoding="utf-8") == "precious data"
+
+
+def test_import_export_with_unsupported_extension_reports_an_error(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    target = tmp_path / "overview.txt"
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(["import", str(FIXTURE), "--rules", str(RULES), "--export", str(target)])
+
+    captured = capsys.readouterr()
+    assert exc_info.value.code == 1
+    assert ".txt" in captured.err
+    assert captured.out == ""
+    assert not target.exists()
+
+
+def test_import_export_into_a_missing_folder_reports_an_error(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    target = tmp_path / "missing" / "overview.csv"
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(["import", str(FIXTURE), "--rules", str(RULES), "--export", str(target)])
+
+    captured = capsys.readouterr()
+    assert exc_info.value.code == 1
+    assert captured.err.startswith("Error:")
+    assert captured.out == ""

@@ -1,5 +1,5 @@
 import sys
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from importlib import metadata
 from pathlib import Path
 
@@ -8,6 +8,7 @@ from finance_tracker.categorizer import (
     categorize_transactions,
     remove_ignored,
 )
+from finance_tracker.export import export_overviews
 from finance_tracker.files import expand_paths
 from finance_tracker.models import Overview, Transaction, Transactions
 from finance_tracker.parser import parse_statements
@@ -20,8 +21,10 @@ def main(argv: list[str] | None = None) -> None:
 
     The ``import`` command reads the statements, removes duplicates and ignored transactions,
     and prints an overview of income and expenses per category: one for the whole import, or
-    one for every period when ``--by`` is given. A problem with the input is reported on
-    ``stderr`` and ends the program with exit code 1; invalid arguments end it with code 2
+    one for every period when ``--by`` is given. With ``--export`` the same overview is also
+    written to a new CSV or JSON file, before anything is printed, so that a failed export
+    leaves ``stdout`` empty. A problem with the input or the export is reported on ``stderr``
+    and ends the program with exit code 1; invalid arguments end it with code 2
     (``argparse``).
 
     Args:
@@ -37,23 +40,32 @@ def main(argv: list[str] | None = None) -> None:
                 expand_paths(args.paths, expand_subfolders=args.recursive)
             )
             rule_set = load_rules(args.rules)
-        except (ValueError, FileNotFoundError) as e:
+            transactions = remove_ignored(transactions, rule_set.ignore)
+            if args.by:
+                categorized_by_periods = categorize_by_period(
+                    transactions.transactions, rule_set.categories, args.by
+                )
+                exported = _export_file(args, transactions, categorized_by_periods)
+            else:
+                categorized = categorize_transactions(
+                    transactions.transactions, rule_set.categories
+                )
+                exported = _export_file(args, transactions, {"all": categorized})
+        except (ValueError, OSError) as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
 
-        transactions = remove_ignored(transactions, rule_set.ignore)
         _print_header(transactions)
 
         if args.by:
-            categorized_by_periods = categorize_by_period(
-                transactions.transactions, rule_set.categories, args.by
-            )
             for period, overview in categorized_by_periods.items():
                 _print_period(period, overview)
         else:
-            categorized = categorize_transactions(transactions.transactions, rule_set.categories)
             print()
             _print_overview(categorized)
+
+        if exported:
+            _print_exported(args.export)
 
 
 def _build_parser() -> ArgumentParser:
@@ -74,6 +86,7 @@ def _build_parser() -> ArgumentParser:
         help="Recursively search for XML files in subfolders",
     )
     import_parser.add_argument("--by", help="Split the overview by period", choices=GRANULARITIES)
+    import_parser.add_argument("--export", help="Export the overview to a file", type=Path)
 
     parser.add_argument(
         "--version",
@@ -135,3 +148,26 @@ def _print_totals(overview: Overview) -> None:
     print(f"Total Income: {overview.total_income:.2f}")
     print(f"Total Expenses: {-overview.total_expenses:.2f}")
     print(f"Net Total: {overview.net_total:.2f}")
+
+
+def _export_file(
+    args: Namespace, transactions: Transactions, overviews: dict[str, Overview]
+) -> bool:
+    """Write the overviews to the ``--export`` file, if one was given.
+
+    Returns:
+        ``True`` when a file was written, ``False`` when ``--export`` was not used.
+
+    Raises:
+        ValueError: if the extension of the file is not supported.
+        OSError: if the file cannot be created, for example because it already exists.
+    """
+    if args.export:
+        export_overviews(args.export, transactions, overviews)
+
+    return bool(args.export)
+
+
+def _print_exported(path: Path) -> None:
+    """Tell the user, after an empty line, which file the overview was exported to."""
+    print(f"\nExported to {path.absolute()}")
