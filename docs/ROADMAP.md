@@ -26,7 +26,7 @@ Order matters: export comes after periods, because periods change the shape of t
 - [x] 3. Ignore rules: `[ignore] keywords = [...]` in `rules.toml`, same matching as categories; ignored count is printed.
 - [x] 4. Periods: `--by {year,quarter,month,week,day}` (ISO weeks); without it the overview stays one total.
 - [x] 5. Export: `--export file.csv|file.json` (format by extension; amounts as strings in JSON).
-- [ ] 6. Release 0.2.0: bump the version, update README, tag.
+- [x] 6. Release 0.2.0: bump the version, update README, tag.
 
 ## Out of scope (v0.1)
 

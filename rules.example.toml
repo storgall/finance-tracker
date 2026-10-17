@@ -10,3 +10,8 @@
 Groceries = ["albert", "billa", "market"]
 Rent = ["nájem"]
 Streaming = ["netflix", "spotify"]
+
+# Optional. A transaction that matches one of these keywords is left out of the overview
+# completely (the same matching as above), for example a transfer to your savings account.
+[ignore]
+keywords = ["123456789/0600"]

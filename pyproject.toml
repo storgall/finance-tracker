@@ -1,6 +1,6 @@
 [project]
 name = "finance-tracker"
-version = "0.1.0"
+version = "0.2.0"
 description = "Command-line tool that imports Moneta bank statements (XML), sorts every transaction into categories using your own keyword rules, skips accounts you want to ignore (e.g. savings), and prints an income and expense overview. Pure Python standard library, exact Decimal money handling, fully typed and tested."
 readme = "README.md"
 license = "MIT"
